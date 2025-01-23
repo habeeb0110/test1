@@ -1,14 +1,169 @@
+<!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sensor Data Dashboard</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AtmoSense</title>
+  <script src="https://cdn.plot.ly/plotly-2.25.2.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      padding: 0;
+    }
+    .container {
+      max-width: 1200px;
+      margin: auto;
+    }
+    #dashboard {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    #dashboard div {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 10px;
+      box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.1);
+    }
+    input[type="file"] {
+      margin-bottom: 20px;
+    }
+  </style>
 </head>
 <body>
-    <h1>Welcome to the Sensor Data Dashboard</h1>
-    <p>Below is the live dashboard for sensor data:</p>
+  <div class="container">
+<body>
+  <div class="container">
+    <img src="atmosense-logo.png" alt="AtmoSense Logo" class="logo">
+    <h1>AtmoSense</h1>
+    <p>Upload your sensor data JSON file to visualize the performance metrics dynamically.</p>
+    <input type="file" id="fileInput" accept=".json">
+    <div id="dashboard">
+      <div id="timeSeriesPlot"></div>
+      <div id="comparisonPlot"></div>
+      <div id="hostAnalysis"></div>
+      <div id="topicDistribution"></div>
+      <div id="kpiMetrics"></div>
+    </div>
+  </div>
+
+  <style>
+    .logo {
+      position: absolute;
+      top: 50px;
+      right: 50px;
+      width: 350px;
+      z-index: 1000;
+    }
+  </style>
+</body>
+
     
-    <!-- Embed Power BI dashboard using iframe -->
-    <iframe width="100%" height="600" src="https://app.powerbi.com/reportEmbed?reportId=your-report-id&groupId=your-group-id&autoAuth=true&ctid=your-tenant-id" frameborder="0" allowFullScreen="true"></iframe>
+  <script>
+    document.getElementById('fileInput').addEventListener('change', function (event) {
+      const file = event.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          const jsonData = JSON.parse(e.target.result);
+          generateDashboard(jsonData);
+        };
+        reader.readAsText(file);
+      }
+    });
+
+    function generateDashboard(data) {
+      // Extract necessary fields
+      const time = data.map(d => d['_time']);
+      const value = data.map(d => d['_value']);
+      const field = data.map(d => d['_field']);
+      const host = data.map(d => d['host']);
+      const topic = data.map(d => d['topic']);
+
+      // Time Series Plot
+      const timeSeriesTrace = {
+        x: time,
+        y: value,
+        mode: 'lines+markers',
+        marker: { color: 'blue' },
+        name: 'Sensor Reading'
+      };
+      const timeSeriesLayout = {
+        title: 'Line chart of Ammonia Gas Sensor Readings',
+        xaxis: { title: 'Time' },
+        yaxis: { title: 'Sensor Value' }
+      };
+      Plotly.newPlot('timeSeriesPlot', [timeSeriesTrace], timeSeriesLayout);
+
+      // Comparison of Sensor Types
+      const uniqueFields = [...new Set(field)];
+      const fieldAverages = uniqueFields.map(f => {
+        const values = data.filter(d => d['_field'] === f).map(d => d['_value']);
+        return { field: f, average: values.reduce((a, b) => a + b, 0) / values.length };
+      });
+
+      const comparisonTrace = {
+        x: fieldAverages.map(f => f.field),
+        y: fieldAverages.map(f => f.average),
+        type: 'bar',
+        marker: { color: 'orange' }
+      };
+      const comparisonLayout = {
+        title: 'Comparison of Sensor Types',
+        xaxis: { title: 'Sensor Type' },
+        yaxis: { title: 'Average Value' }
+      };
+      Plotly.newPlot('comparisonPlot', [comparisonTrace], comparisonLayout);
+
+      // Host-Based Sensor Analysis
+      const uniqueHosts = [...new Set(host)];
+      const hostValues = uniqueHosts.map(h => {
+        const values = data.filter(d => d['host'] === h).map(d => d['_value']);
+        return { host: h, total: values.reduce((a, b) => a + b, 0) };
+      });
+
+      const hostTrace = {
+        x: hostValues.map(h => h.host),
+        y: hostValues.map(h => h.total),
+        type: 'bar',
+        marker: { color: 'green' }
+      };
+      const hostLayout = {
+        title: 'Host-Based Sensor Analysis',
+        xaxis: { title: 'Host' },
+        yaxis: { title: 'Total Value' }
+      };
+      Plotly.newPlot('hostAnalysis', [hostTrace], hostLayout);
+
+      // Topic-Based Distribution
+      const uniqueTopics = [...new Set(topic)];
+      const topicCounts = uniqueTopics.map(t => {
+        return { topic: t, count: data.filter(d => d['topic'] === t).length };
+      });
+
+      const topicTrace = {
+        labels: topicCounts.map(t => t.topic),
+        values: topicCounts.map(t => t.count),
+        type: 'pie'
+      };
+      const topicLayout = {
+        title: 'Topic-Based Distribution'
+      };
+      Plotly.newPlot('topicDistribution', [topicTrace], topicLayout);
+
+      // Real-Time KPI Metrics
+      const latestData = data[data.length - 1];
+      const kpiContainer = document.getElementById('kpiMetrics');
+      kpiContainer.innerHTML = `
+        <h3>Real-Time KPI Metrics</h3>
+        <p><strong>Latest Time:</strong> ${latestData['_time']}</p>
+        <p><strong>Latest Value:</strong> ${latestData['_value']}</p>
+        <p><strong>Latest Field:</strong> ${latestData['_field']}</p>
+        <p><strong>Latest Host:</strong> ${latestData['host']}</p>
+        <p><strong>Latest Topic:</strong> ${latestData['topic']}</p>
+      `;
+    }
+  </script>
 </body>
 </html>
